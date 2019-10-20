@@ -1,0 +1,241 @@
+使用内置的摄像头程序获取图片
+随着移动电话快速的变成移动电脑，它们以很多方式替代了各种的电子产品。最早在手机上添加的硬件就是摄像头。目前，人们似乎已经很难接受一台没有摄像头的手机了。当然，基于Android的手机也不例外；从一开始Android SDK就支持访问内建的摄像头程序来获取图像。
+如果要在Android平台上完成一些事情，最简单、最直接的方法是通过intent利用已经存在的软件程序。intent是Android的核心组成部分，它在文档中被描述为“描述将被执行的动作”。实际上，intents被用于触发其它的应用程序去做某些操作，或者是在一个应用程序中的多个activities中进行选择。
+所有带摄像头的Android设备都有摄像头应用程序。摄像头应用程序包含一个intent filter，它为开发人员提供了捕获图像的能力，这样开发人员就不需要自己构建捕获程序了。
+intent filter意味着为程序员提供了某种功能。具体的说intent filter定义在一个应用程序的AndroidManifest.xml文件中，它用来告诉Android，该应用程序，确切的说应该是包含intent filter的activity将会通过命令执行特殊的任务。
+摄像头应用程序的AndroidManifest.xml文件中存在如下定义：
+<intent-filter>
+ <action android:name="android.media.action.IMAGE_CAPTURE"/>
+ <category android:name="android.intent.category.DEFAULT"/>
+</intent-filter>
+这个intent-filter定义在名为Camera的activity中。
+为了能够通过intent利用摄像头程序，我们只需要如下所示构建一个intent对象
+Intent i = new Intent("android.media.action.IMAGE_CAPTURE");
+ 
+实际上我们并不想直接通过action字符串来创建intent。在MediaStore类中定义了该字符串常量，ACTION_IMAGE_CAPTURE。这样即时字符串改变了，我们也可以很方便的通过常量来获取到action的值。
+Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+startActivity(i); 
+
+使用这个intent会触发默认的摄像头程序以图片模式执行，如下图所示。
+
+
+ 
+从摄像头程序返回数据
+当然，在拍照之后没有从摄像头程序返回图片到调用它的activity是没有意义的。要从摄像头程序获得到图片数据，activity需要将startActivity方法替换为startActivityForResult方法。该方法允许我们从摄像头程序中访问返回的数据——Bitmap。
+下面是一个简单的示例：
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.os.Bundle;
+import android.widget.ImageView;
+public class CameraIntent extends Activity{
+ final static int CAMERA_RESULT = 0;
+ ImageView imv;
+ 
+ @Override
+ public void onCreate(Bundle savedInstanceState){
+  super.onCreate(savedInstanceState);
+  setContentView(R.layout.main);
+  Intent i = 
+   new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+  startActivityForResult(i,CAMERA_RESULT);
+ }
+ 
+ protected void onActivityResult(int requestCode,int resultCode,Intent data) {
+  super.onActivityResult(requestCode,resultCode,data);
+  if(resultCode == RESULT_OK){
+ Bundle extras = data.getExtras();
+ Bitmap bmp = (Bitmap)extras.get("data");
+ imv = (ImageView)findViewById(R.id.ReturnedImageView);
+ imv.setImageBitmap(bmp);
+  }
+ }
+}
+
+以上代码对应的布局文件layout/main.xml如下:
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:orientation="vertical"
+android:layout_width="fill_parent"
+android:layout_height="fill_parent"
+>
+ <ImageView 
+  android:id="@+id/ReturnedImageView" 
+  android:layout_width="wrap_content"
+  android:layout_height="wrap_content">
+ </ImageView>
+
+</LinearLayout> 
+ 
+AndroidManifest.xml文件代码：
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+android:versionCode="1"
+android:versionName="1.0" package="com.apress.proandroidmedia.ch1.cameraintent">
+ <application android:icon="@drawable/icon" android:label="@string/app_name">
+  <activity android:name=".CameraIntent"
+  android:label="@string/app_name">
+   <intent-filter>
+   <action android:name="android.intent.action.MAIN" />
+   <category android:name="android.intent.category.LAUNCHER" />
+   </intent-filter>
+ < /activity>
+ </application>
+ <uses-sdk android:minSdkVersion="4" />
+</manifest>
+
+在这个例子中，通过onActivityResult方法的intent的extra中获取到摄像头程序范围的图片。extra中对应的参数名为“data”,返回Bitmap对象。
+// 从intent中获取扩展数据
+Bundle extras = intent.getExtras();
+// 从扩展数据中获取
+Bitmap bmp = (Bitmap) extras.get("data");
+ 
+在布局文件中定义了一个ImageView，当获取图片之后，将图片设置给ImageView对象，程序运行结果如下图：
+
+ 
+获取大尺寸图片
+为了绕开尺寸限制，从Android1.5开始，在绝大多数设备上我们可以向intent传递一个额外数据来启动摄像头程序。这个额外的数据名被定义在MediaStore类名为EXTRA_OUTPUT常量。这个额外数据的值为获取到图片存储的URI。
+ 
+下列代码片段可以将获取的图片命名为myfavoritepicture.jpg并保存到设备的sdcard中。
+String iamgeFilePath = Environment.getExternalStorageDirectory().
+       getAbsolutePath()+"/myfavoritepicture.jpg";
+File imageFile = new File(imageFilePath);
+Uri imageFileUri = Uri.formFile(imageFile);
+Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+i.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,imageFileUri);
+startActivityForResult(i,CAMERA_RESULT); 
+ 
+备注：上面的代码片段可以简化为：imageFileUri=Uri.parse(file:///sdcard/myfavoritepicture.jpg);
+ 
+显示大尺寸图片
+加载并且显示一个会明显的使用内存。比如，HTC G1搭载320万象素的摄像头。一颗320万象素的摄像头通常情况下拍摄的照片尺寸为2048*1536象素。显示一个32位大小的图片需要大于100663KB或者是大概13MB内存。如果是这样的话你的应用程序可能会内存溢出。
+ 
+Android提供了一个名为BitmapFactory的工具类，该类提供了一些静态的方法允许从各种资源加载Bitmap图片。根据我们的需求，我们将会从一个文件加载图片显示在activity上。幸运的是，在这些方法中需要传入一个BitmapFactory.Options对象，该对象允许我们定义如何将Bitmap读进内存。具体来说，我们可以设置BitmapFactory.Options参数inSampleSize，该参数可以减少加载图片的大小。例如，设置inSampleSize的值为8，那么会产生原始图片1/8大小的图片。
+ 
+BitmapFactory.Options bmpFactoryOptions = new BitmapFactory.Options();
+bmpFactoryOptions.inSampleSize = 8;
+Bitmap bmp = BitmapFactory.decodeFile(imageFilePath, bmpFactoryOptions);
+imv.setImageBitmap(bmp); 
+ 
+这是快速加载大尺寸图片的方法但是这种方法即没有考虑原始图片的尺寸也没有考虑屏幕的尺寸。如果可以根据屏幕尺寸对图片进行等比缩放效果会更好。
+ 
+下列的代码片段展示了如何获取到屏幕的尺寸。当我们使用这些方法，也就意味着图片需要尽可能的按照这个尺寸进行等比缩放。
+Display currentDisplay = getWindowManager().getDefaultDisplay();
+int dw = currentDisplay.getWidth();
+int dh = currentDisplay.getHeight();
+
+为了检测图片的分辨率，我们需要进行计算，可以使用BitmapFactory和BitmapFactory.Options，平且将BitmapFactory.Options.inJustDecodeBounds设置为true。该参数告诉BitmapFactory只加载图片的边界，当我们使用这个方法之后，BitmapFactory.Options.outHeight和BitmapFactory.Options.outWidth变量将会被填充。
+ 
+// 加载图片尺寸而不是图片本身
+BitmapFactory.Options bmpFactoryOptions = new BitmapFactory.Options();
+bmpFactoryOptions.inJustDecodeBounds = true;
+Bitmap bmp = BitmapFactory.decodeFile(imageFilePath, bmpFactoryOptions);
+int heightRatio = (int)Math.ceil(bmpFactoryOptions.outHeight/(float)dh);
+int widthRatio = (int)Math.ceil(bmpFactoryOptions.outWidth/(float)dw);
+Log.v("HEIGHTRATIO",""+heightRatio);
+Log.v("WIDTHRATIO",""+widthRatio);
+ 
+通过计算出屏幕和图片的长宽的比例来确定应该如何对图片进行缩放。
+ 
+// 如果宽度和高度的比例都大于1,
+// 图片的其中一遍大于屏幕
+if (heightRatio > 1 && widthRatio > 1){
+ if (heightRatio > widthRatio)
+ {
+  // Height ratio is larger, scale according to it
+  bmpFactoryOptions.inSampleSize = heightRatio;
+ }
+ else
+ {
+  // Width ratio is larger, scale according to it
+  bmpFactoryOptions.inSampleSize = widthRatio;
+ }
+} 
+// 加载图片
+bmpFactoryOptions.inJustDecodeBounds = false;
+bmp = BitmapFactory.decodeFile(imageFilePath, bmpFactoryOptions);
+ 
+下面是通过intent调用内置的摄像头程序拍摄图片以及按照屏幕尺寸缩放图片显示的完整案例：
+ 
+import java.io.File;
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+import android.view.Display;
+import android.widget.ImageView;
+public class SizedCameraIntent extends Activity {
+ final static int CAMERA_RESULT = 0;
+ ImageView imv;
+ String imageFilePath;
+ @Override
+ public void onCreate(Bundle savedInstanceState) {
+  super.onCreate(savedInstanceState);
+  setContentView(R.layout.main);
+  imageFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() +
+  "/myfavoritepicture.jpg";
+  File imageFile = new File(imageFilePath);
+  Uri imageFileUri = Uri.fromFile(imageFile);
+  Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+  i.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, imageFileUri);
+  startActivityForResult(i, CAMERA_RESULT);
+ }
+ protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+  super.onActivityResult(requestCode, resultCode, intent);
+  if (resultCode == RESULT_OK)
+  {
+   // Get a reference to the ImageView
+   imv = (ImageView) findViewById(R.id.ReturnedImageView);
+   Display currentDisplay = getWindowManager().getDefaultDisplay();
+   int dw = currentDisplay.getWidth();
+   int dh = currentDisplay.getHeight();
+   // Load up the image's dimensions not the image itself
+   BitmapFactory.Options bmpFactoryOptions = new BitmapFactory.Options();
+   bmpFactoryOptions.inJustDecodeBounds = true;
+   Bitmap bmp = BitmapFactory.decodeFile(imageFilePath, bmpFactoryOptions);
+   int heightRatio = (int)Math.ceil(bmpFactoryOptions.outHeight/(float)dh);
+   int widthRatio = (int)Math.ceil(bmpFactoryOptions.outWidth/(float)dw);
+   Log.v("HEIGHTRATIO",""+heightRatio);
+   Log.v("WIDTHRATIO",""+widthRatio);
+   // If both of the ratios are greater than 1,
+   // one of the sides of the image is greater than the screen
+   if (heightRatio > 1 && widthRatio > 1)
+   {
+    if (heightRatio > widthRatio)
+    {
+     // Height ratio is larger, scale according to it
+     bmpFactoryOptions.inSampleSize = heightRatio;
+    }
+    else
+    {
+     // Width ratio is larger, scale according to it
+     bmpFactoryOptions.inSampleSize = widthRatio;
+    }
+   }
+   // Decode it for real
+   bmpFactoryOptions.inJustDecodeBounds = false;
+   bmp = BitmapFactory.decodeFile(imageFilePath, bmpFactoryOptions);
+   // Display it
+   imv.setImageBitmap(bmp);
+  }
+ }
+}
+ 
+之前的代码需要下列的layout/main.xml文件：
+ 
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:orientation="vertical"
+android:layout_width="fill_parent"
+android:layout_height="fill_parent"
+>
+<ImageView android:id="@+id/ReturnedImageView" android:layout_width="wrap_content"?
+android:layout_height="wrap_content"></ImageView>
+</LinearLayout> 
+ 
+
+以上代码的结果
